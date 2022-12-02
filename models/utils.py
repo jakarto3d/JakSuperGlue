@@ -51,7 +51,6 @@ import cv2
 import torch
 import matplotlib.pyplot as plt
 import matplotlib
-matplotlib.use('Agg')
 
 
 class AverageTimer:
@@ -450,7 +449,7 @@ def plot_matches(kpts0, kpts1, color, lw=1.5, ps=4):
 
 
 def make_matching_plot(image0, image1, kpts0, kpts1, mkpts0, mkpts1,
-                       color, text, path, show_keypoints=False,
+                       color, text, path=None, show_keypoints=False,
                        fast_viz=False, opencv_display=False,
                        opencv_title='matches', small_text=[]):
 
@@ -477,7 +476,10 @@ def make_matching_plot(image0, image1, kpts0, kpts1, mkpts0, mkpts1,
         0.01, 0.01, '\n'.join(small_text), transform=fig.axes[0].transAxes,
         fontsize=5, va='bottom', ha='left', color=txt_color)
 
-    plt.savefig(str(path), bbox_inches='tight', pad_inches=0)
+    if path is not None:
+        plt.savefig(str(path), bbox_inches='tight', pad_inches=0)
+    else:
+        plt.show()
     plt.close()
 
 
