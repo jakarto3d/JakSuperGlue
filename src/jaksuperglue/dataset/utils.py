@@ -1,6 +1,85 @@
-from typing import Tuple
+from pathlib import Path
+from typing import Tuple, List
+import matplotlib.pyplot as plt
+import json
 from pyocamcalib.modelling.camera import Camera, cartesian2geographic
 import numpy as np
+
+
+def display_lm(img_target, img_src, uv_target, uv_src, name=None):
+    H_t, W_t = img_target.shape[0], img_target.shape[1]
+    H_s, W_s = img_src.shape[0], img_src.shape[1]
+    if (img_target.ndim > 2) and (img_src.ndim > 2):
+        rgb_flag = True
+        background = img_target[:, :, [2, 1, 0]].copy()
+    else:
+        rgb_flag = False
+        background = img_target.copy()
+
+    shift_h = int(np.round(np.abs(H_t - H_s) / 2) * (H_s - H_t > 0)) + 1
+    if rgb_flag:
+        pad_width = [(shift_h, shift_h), (0, W_s), (0, 0)]
+    else:
+        pad_width = [(shift_h, shift_h), (0, W_s)]
+    background = np.pad(background, pad_width)
+
+    if rgb_flag:
+        background[:H_s, W_t:, :] = img_src[:H_s, :, [2, 1, 0]].copy()
+    else:
+        background[:H_s, W_t:] = img_src[:H_s, :].copy()
+
+    fig, ax = plt.subplots(ncols=1, figsize=(20, 20))
+    if rgb_flag:
+        ax.imshow(background)
+    else:
+        ax.imshow(background, cmap='gray')
+
+    for i in range(uv_target.shape[0]):
+        ax.scatter(uv_target[i, 1], uv_target[i, 0] + shift_h,
+                   s=20, c='g', marker='+')
+        ax.scatter(uv_src[i, 1] + W_t, uv_src[i, 0], s=20, c='g', marker='+')
+        ax.plot([uv_target[i, 1], uv_src[i, 1] + W_t],
+                [uv_target[i, 0] + shift_h, uv_src[i, 0]], c='g',
+                markersize=20)
+    if name is not None:
+        plt.savefig(name, dpi=300)
+    else:
+        plt.show()
+
+def get_sub_fb_d(patch_list: List[np.array],
+                 downsampling: int):
+    patch_size = patch_list[0][0].shape[:2]
+    sub_sphere_d = np.zeros((2560 // downsampling, 5120 // downsampling, 3)).astype(np.uint8)
+    for i, row_id in enumerate([1, 2, 3, 4, 5]):
+        for j, col_id in enumerate([7, 8, 9, 10, 11, 12, 13, 14, 15, 0]):
+            sub_sphere_d[i * patch_size[0]:(i + 1) * patch_size[0], j * patch_size[1]:(j + 1) * patch_size[1]] = \
+                patch_list[row_id][col_id]
+
+    return sub_sphere_d
+
+
+def get_sub_fb_g(patch_list: List[np.array],
+                 downsampling: int):
+    patch_size = patch_list[0][0].shape[:2]
+    sub_sphere_g = np.zeros((2560 // downsampling, 5120 // downsampling, 3)).astype(np.uint8)
+    for i, row_id in enumerate([1, 2, 3, 4, 5]):
+        for j, col_id in enumerate([15, 0, 1, 2, 3, 4, 5, 6, 7, 8]):
+            sub_sphere_g[i * patch_size[0]:(i + 1) * patch_size[0], j * patch_size[1]:(j + 1) * patch_size[1]] = \
+                patch_list[row_id][col_id]
+
+    return sub_sphere_g
+
+
+def get_sub_fb_a(patch_list: List[np.array],
+                 downsampling: int):
+    patch_size = patch_list[0][0].shape[:2]
+    sub_sphere_a = np.zeros((2560 // downsampling, 5120 // downsampling, 3)).astype(np.uint8)
+    for i, row_id in enumerate([0, 1, 2, 3, 4]):
+        for j, col_id in enumerate([3, 4, 11, 12, 13,14, 15, 0, 1, 2]):
+            sub_sphere_a[i * patch_size[0]:(i + 1) * patch_size[0], j * patch_size[1]:(j + 1) * patch_size[1]] = \
+                patch_list[row_id][col_id]
+
+    return sub_sphere_a
 
 
 def points_fisheye2equirectangular(uv_points: np.array,
@@ -51,6 +130,7 @@ def fisheye_1_to_fb_d_1(uv_points: np.array,
     uv_points = vu_points[:, ::-1]
     uv_points[:, 0] *= f_ratio_h
     uv_points[:, 1] *= f_ratio_w
+    uv_points = np.round(uv_points).astype(int)
 
     # Replace equirectangular points in sub frame fb_d
     uv_sub_fb_d = np.copy(uv_points_equi)
@@ -90,7 +170,8 @@ def fisheye_2_to_fb_d_2(uv_points: np.array,
     uv_points = vu_points[:, ::-1]
     uv_points[:, 0] *= f_ratio_h
     uv_points[:, 1] *= f_ratio_w
-    uv_points[:, 1] -= sub_fb_shape[1] // 2
+    uv_points[:, 1] -= sub_fb_shape[1] / 2
+    uv_points = np.round(uv_points).astype(int)
 
     # Replace equirectangular points in sub frame fb_d
     uv_sub_fb_d = np.copy(uv_points_equi)
@@ -132,6 +213,7 @@ def fisheye_1_to_fb_g_1(uv_points: np.array,
     uv_points = vu_points[:, ::-1]
     uv_points[:, 0] *= f_ratio_h
     uv_points[:, 1] *= f_ratio_w
+    uv_points = np.round(uv_points).astype(int)
 
     # Replace equirectangular points in sub frame fb_d
     uv_sub_fb_g = np.copy(uv_points_equi)
@@ -171,7 +253,8 @@ def fisheye_2_to_fb_g_2(uv_points: np.array,
     uv_points = vu_points[:, ::-1]
     uv_points[:, 0] *= f_ratio_h
     uv_points[:, 1] *= f_ratio_w
-    uv_points[:, 1] -= sub_fb_shape[1] // 2
+    uv_points[:, 1] -= sub_fb_shape[1] / 2
+    uv_points = np.round(uv_points).astype(int)
 
     # Replace equirectangular points in sub frame fb_d
     uv_sub_fb_g = np.copy(uv_points_equi)
@@ -213,6 +296,7 @@ def fisheye_1_to_fb_a_1(uv_points: np.array,
     uv_points = vu_points[:, ::-1]
     uv_points[:, 0] *= f_ratio_h
     uv_points[:, 1] *= f_ratio_w
+    uv_points = np.round(uv_points).astype(int)
 
     # Replace equirectangular points in sub frame fb_d
     uv_sub_fb_a = np.copy(uv_points_equi)
@@ -253,22 +337,15 @@ def fisheye_2_to_fb_a_2(uv_points: np.array,
     uv_points = vu_points[:, ::-1]
     uv_points[:, 0] *= f_ratio_h
     uv_points[:, 1] *= f_ratio_w
-    uv_points[:, 1] -= sub_fb_shape[1] // 2
+    uv_points[:, 1] -= sub_fb_shape[1] / 2
+    uv_points = np.round(uv_points).astype(int)
 
-    # Replace equirectangular points in sub frame fb_d
+    # Replace equirectangular points in sub frame fb_a
     uv_sub_fb_a = np.copy(uv_points_equi)
-    print(patch_size)
-    import matplotlib.pyplot as plt
-    plt.figure()
-    plt.hist(uv_sub_fb_a[:, 1], bins=64)
     uv_sub_fb_a[:, 1] = (uv_sub_fb_a[:, 1] - patch_size[0] * 3) % we_new
-    plt.figure()
-    plt.hist(uv_sub_fb_a[:, 1], bins=64)
     msk = uv_sub_fb_a[:, 1] >= (we_new // 2)
     uv_sub_fb_a[msk, 1] = (uv_sub_fb_a[msk, 1] - patch_size[0] * 6) % we_new
-    plt.figure()
-    plt.hist(uv_sub_fb_a[:, 1], bins=64)
-    plt.show()
+
     # Replace equirectangular points in sub frame 2, i.e. fb_a_2
     mask_1 = (uv_sub_fb_a[:, 0] >= 0) & (uv_sub_fb_a[:, 0] < sub_fb_shape[0])
     mask_2 = (uv_sub_fb_a[:, 1] >= sub_fb_shape[1] // 2) & (uv_sub_fb_a[:, 1] < sub_fb_shape[1])
@@ -277,3 +354,9 @@ def fisheye_2_to_fb_a_2(uv_points: np.array,
     uv_sub_fb_a[:, 1] -= sub_fb_shape[1] // 2
 
     return uv_points[mask, :], uv_sub_fb_a[mask, :]
+
+def write_keypoints(kpts_1: np.array,  kpts_2: np.array, output_file: Path, value: int):
+    kpts = {'fisheye': kpts_1.tolist(),
+            'pc': kpts_2.tolist()}
+    with open(output_file / f'kpts_{value}.json', 'w') as f:
+        json.dump(kpts, f)
