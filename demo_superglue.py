@@ -50,9 +50,9 @@ import cv2
 import matplotlib.cm as cm
 import torch
 
-from models.matching import Matching
-from models.utils import (AverageTimer, VideoStreamer,
-                          make_matching_plot_fast, frame2tensor)
+from src.jaksuperglue.models.matching import Matching
+from src.jaksuperglue.models.utils import (AverageTimer, VideoStreamer,
+                                           make_matching_plot_fast, frame2tensor)
 
 torch.set_grad_enabled(False)
 

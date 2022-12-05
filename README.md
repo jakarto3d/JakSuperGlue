@@ -21,7 +21,7 @@ SuperGlue operates as a "middle-end," performing context aggregation, matching, 
 
 * `hloc`: a new toolbox for visual localization and SfM with SuperGlue, available at [cvg/Hierarchical-Localization](https://github.com/cvg/Hierarchical-Localization/). Winner of 3 CVPR 2020 competitions on localization and image matching!
 
-We provide two pre-trained weights files: an indoor model trained on ScanNet data, and an outdoor model trained on MegaDepth data. Both models are inside the [weights directory](./models/weights). By default, the demo will run the **indoor** model.
+We provide two pre-trained weights files: an indoor model trained on ScanNet data, and an outdoor model trained on MegaDepth data. Both models are inside the [weights directory](src/jaksuperglue/models/weights). By default, the demo will run the **indoor** model.
 
 ## Dependencies
 * Python 3 >= 3.5

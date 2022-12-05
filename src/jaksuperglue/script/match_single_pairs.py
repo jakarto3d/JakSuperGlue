@@ -1,17 +1,10 @@
-from pathlib import Path
-import argparse
-import random
-import numpy as np
 import matplotlib.cm as cm
 import torch
 
 
-from models.matching import Matching
-from models.utils import (compute_pose_error, compute_epipolar_error,
-                          estimate_pose, make_matching_plot,
-                          error_colormap, AverageTimer, pose_auc, read_image,
-                          rotate_intrinsics, rotate_pose_inplane,
-                          scale_intrinsics)
+from src.jaksuperglue.models.matching import Matching
+from src.jaksuperglue.models.utils import (make_matching_plot,
+                                           read_image)
 
 torch.set_grad_enabled(False)
 
