@@ -124,6 +124,7 @@ def fisheye_1_to_fb_d_1(uv_points: np.array,
     vu_points_fisheye = np.vstack((np.round(uv_points[:, 1] / f_ratio_w),
                                    np.round(uv_points[:, 0] / f_ratio_h))).T
 
+
     vu_points, uv_points_equi = points_fisheye2equirectangular(vu_points_fisheye, downsampling, camera, rotation_matrix)
 
     # Replace fisheye in down sampled frame

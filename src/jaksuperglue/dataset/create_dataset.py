@@ -1,5 +1,4 @@
 from typing import Tuple
-import json
 from pathlib import Path
 import cv2 as cv
 from scipy.spatial.transform import Rotation as R
@@ -10,8 +9,8 @@ import numpy as np
 from loguru import logger
 from tqdm import tqdm
 
-from jaksuperglue.dataset.feature_detection import get_sift_keypoints, get_sobel_keypoints
-from jaksuperglue.dataset.utils import fisheye_1_to_fb_d_1, fisheye_2_to_fb_d_2, fisheye_1_to_fb_g_1, \
+from jaksuperglue.dataset.feature_detection import get_sobel_keypoints
+from jaksuperglue.utils.dataset_utils import fisheye_1_to_fb_d_1, fisheye_2_to_fb_d_2, fisheye_1_to_fb_g_1, \
     fisheye_2_to_fb_g_2, fisheye_1_to_fb_a_1, fisheye_2_to_fb_a_2, get_sub_fb_d, get_sub_fb_g, get_sub_fb_a, display_lm, \
     write_keypoints
 
@@ -63,6 +62,7 @@ def create_dataset(root_path: str,
 
     count = 0
     for sample_dir in tqdm(sample_dir_list):
+        print(sample_dir.name)
         fb_patch = []
         sphere = cv.imread(str(sample_dir / Path(str(sample_dir.name) + '.jpg')))
         fb = cv.imread(str(sample_dir / Path(str(sample_dir.name) + '.png')))
