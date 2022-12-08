@@ -5,3 +5,9 @@ numpy
 
 typer
 loguru
+pandas
+seaborn
+jaksuperglue
+tqdm
+scipy
+setuptools

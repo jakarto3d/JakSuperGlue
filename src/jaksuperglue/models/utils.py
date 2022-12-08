@@ -259,8 +259,11 @@ def frame2tensor(frame, device):
     return torch.from_numpy(frame/255.).float()[None, None].to(device)
 
 
-def read_image(path, device, resize, rotation, resize_float):
+def read_image(path, device, resize, rotation, resize_float, angle: float = None):
     image = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
+    if angle is not None:
+        M = cv2.getRotationMatrix2D((image.shape[1] // 2, image.shape[0] // 2), angle, 1.0)
+        image = cv2.warpAffine(image, M, (image.shape[1], image.shape[0]))
     if image is None:
         return None, None, None
     w, h = image.shape[1], image.shape[0]
