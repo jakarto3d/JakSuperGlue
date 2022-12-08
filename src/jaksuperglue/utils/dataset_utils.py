@@ -2,9 +2,55 @@ from pathlib import Path
 from typing import Tuple, List
 import matplotlib.pyplot as plt
 import json
+import cv2 as cv
 from pyocamcalib.modelling.camera import Camera, cartesian2geographic
 import numpy as np
 
+
+def get_fakebubble_fragment(fakebubble_downsample: np.array,
+                            nb_fragment_h: int,
+                            nb_fragment_w: int):
+    fragments_list = []
+    fragment_size = (fakebubble_downsample.shape[0] // nb_fragment_h,
+                     fakebubble_downsample.shape[1] // nb_fragment_w)
+
+    for i in range(nb_fragment_h):
+        row = []
+        for j in range(nb_fragment_w):
+            fragment = fakebubble_downsample[i * fragment_size[0]: (i + 1) * fragment_size[0],
+                       j * fragment_size[1]: (j + 1) * fragment_size[1]]
+            row.append(fragment)
+        fragments_list.append(row)
+
+    return fragments_list, fragment_size
+
+
+def load_sphere(sphere_path: str,
+                downsampling: int):
+    """
+    sphere_path: path of the sphere to load
+    downsampling: should be a multiple of 2
+    """
+    sphere = cv.imread(sphere_path, 0)
+    for _ in range(downsampling // 2):
+        sphere = cv.pyrDown(sphere)
+
+    return sphere
+
+
+def load_fisheye(fisheye_path: str,
+                 resize: Tuple[int, int]):
+    f_im = cv.imread(fisheye_path, 0)
+    f_im = cv.resize(f_im, (resize[1], resize[0]))
+
+    return f_im
+
+
+def split_image_in_two(im: np.array):
+    middle = im.shape[1] // 2
+    im_1 = im[:, :middle]
+    im_2 = im[:, middle:]
+    return im_1, im_2
 
 def display_lm(img_target, img_src, uv_target, uv_src, name=None):
     H_t, W_t = img_target.shape[0], img_target.shape[1]

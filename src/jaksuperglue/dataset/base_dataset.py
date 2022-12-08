@@ -60,11 +60,9 @@ class JakOnlyImageDataset(Dataset):
         fi_im = cv.imread(str(fi_file), 0)
         pc_im = cv.imread(str(pc_file), 0)
 
-        fi_kpts, pc_kpts = load_keypoints(kpts_file)
+        # fi_kpts, pc_kpts = load_keypoints(kpts_file)
 
         return {
-            'fast_keypoints0': fi_kpts,
-            'fast_keypoints1': pc_kpts,
             'image0': fi_im,
             'image1': pc_im,
             'type':get_type(fi_file),
@@ -77,11 +75,68 @@ class JakOnlyImageCollator(object):
 
     def __call__(self, inputs):
         inputs = inputs[0]
-        inputs_torch = {'fast_keypoints0': inputs['fast_keypoints0'].reshape((1, -1, 2)),
-                        'fast_keypoints1': inputs['fast_keypoints1'].reshape((1, -1, 2)),
-                        'image0':  torch.from_numpy(inputs['image0'] / 255.).float()[None, None].to(self.device),
+        inputs_torch = {'image0':  torch.from_numpy(inputs['image0'] / 255.).float()[None, None].to(self.device),
                         'image1':  torch.from_numpy(inputs['image1'] / 255.).float()[None, None].to(self.device),
                         'type': inputs['type'],
                         'sample_id': inputs['sample_id']}
+
+        return inputs_torch
+
+
+def check_pair(file_1: Path, file_2: Path):
+    condition_1 = file_1.name.split('_')[0] == file_2.name.split('_')[0]
+    condition_2 = file_1.name.split('_')[1] == file_2.name.split('_')[1]
+    return condition_1 & condition_2
+
+
+class JakInferDataset(Dataset):
+    """Sparse correspondences dataset."""
+
+    def __init__(self,
+                 root: Union[str, Path],
+                 mode: Literal["train", "eval"]):
+
+        self.root = Path(root)
+        self.data_path = self.root / mode
+        self.image_path = self.data_path
+        self.images_fi_list = list(self.image_path.glob("*_*_fi_*.png"))
+        self.images_pc_list = list(self.image_path.glob("*_*_subfb_*.png"))
+
+    def __len__(self):
+        return len(self.images_fi_list)
+
+    def __getitem__(self, idx):
+        fi_file = self.images_fi_list[idx]
+        pc_file = self.images_pc_list[idx]
+
+        assert check_pair(pc_file, fi_file)
+
+        fi_im = cv.imread(str(fi_file), 0)
+        pc_im = cv.imread(str(pc_file), 0)
+
+        im_type = get_type(pc_file)
+
+        if im_type == 'a2':
+            M = cv.getRotationMatrix2D((fi_im.shape[1] // 2, fi_im.shape[0] // 2), -90, 1.0)
+            fi_im = cv.warpAffine(fi_im, M, (fi_im.shape[1], fi_im.shape[0]))
+
+        return {
+            'image0': fi_im,
+            'image1': pc_im,
+            'patch_id': get_type(fi_file),
+            'sphere_name': fi_file.parents[0].name
+        }
+
+
+class JakInferCollator(object):
+    def __init__(self, device=torch.device("cuda")):
+        self.device = device
+
+    def __call__(self, inputs):
+        inputs = inputs[0]
+        inputs_torch = {'image0':  torch.from_numpy(inputs['image0'] / 255.).float()[None, None].to(self.device),
+                        'image1':  torch.from_numpy(inputs['image1'] / 255.).float()[None, None].to(self.device),
+                        'patch_id': inputs['patch_id'],
+                        'sphere_name': inputs['sphere_name']}
 
         return inputs_torch

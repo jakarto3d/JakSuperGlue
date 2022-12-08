@@ -12,7 +12,7 @@ from tqdm import tqdm
 from jaksuperglue.dataset.feature_detection import get_sobel_keypoints
 from jaksuperglue.utils.dataset_utils import fisheye_1_to_fb_d_1, fisheye_2_to_fb_d_2, fisheye_1_to_fb_g_1, \
     fisheye_2_to_fb_g_2, fisheye_1_to_fb_a_1, fisheye_2_to_fb_a_2, get_sub_fb_d, get_sub_fb_g, get_sub_fb_a, display_lm, \
-    write_keypoints
+    write_keypoints, load_sphere, get_fakebubble_fragment, split_image_in_two
 
 app = typer.Typer()
 
@@ -62,43 +62,32 @@ def create_dataset(root_path: str,
 
     count = 0
     for sample_dir in tqdm(sample_dir_list):
-        print(sample_dir.name)
-        fb_patch = []
-        sphere = cv.imread(str(sample_dir / Path(str(sample_dir.name) + '.jpg')))
-        fb = cv.imread(str(sample_dir / Path(str(sample_dir.name) + '.png')))
-        for _ in range(downsampling // 2):
-            sphere = cv.pyrDown(sphere)
-            fb = cv.pyrDown(fb)
+
+        sphere_path = str(sample_dir / Path(str(sample_dir.name) + '.jpg'))
+        fb_path = str(sample_dir / Path(str(sample_dir.name) + '.png'))
+
+        sphere = load_sphere(sphere_path, downsampling)
+        fb = load_sphere(fb_path, downsampling)
 
         f_d, corr_table_d = camera_d.equirectangular2cam(sphere, np.linalg.inv(r_d), (2160, 3840))
         f_g, corr_table_g = camera_g.equirectangular2cam(sphere, np.linalg.inv(r_g), (2160, 3840))
         f_a, corr_table_a = camera_a.equirectangular2cam(sphere, np.linalg.inv(r_a), (2160, 3840))
+
         del sphere
-        patch_size = (fb.shape[0] // nb_patch_h, fb.shape[1] // nb_patch_w)
 
-        for i in range(nb_patch_h):
-            row = []
-            for j in range(nb_patch_w):
-                row.append(fb[i * patch_size[0]: (i + 1) * patch_size[0],
-                           j * patch_size[1]: (j + 1) * patch_size[1]])
-            fb_patch.append(row)
+        fakebubble_fragments, fragment_size = get_fakebubble_fragment(fb, nb_patch_h, nb_patch_w)
 
-        sub_fb_d = get_sub_fb_d(fb_patch, downsampling)
-        sub_fb_g = get_sub_fb_g(fb_patch, downsampling)
-        sub_fb_a = get_sub_fb_a(fb_patch, downsampling)
+        sub_fb_d = get_sub_fb_d(fakebubble_fragments, downsampling)
+        sub_fb_g = get_sub_fb_g(fakebubble_fragments, downsampling)
+        sub_fb_a = get_sub_fb_a(fakebubble_fragments, downsampling)
         f_d = cv.resize(f_d, (sub_fb_d.shape[1], sub_fb_d.shape[0]))
         f_g = cv.resize(f_g, (sub_fb_g.shape[1], sub_fb_g.shape[0]))
         f_a = cv.resize(f_a, (sub_fb_a.shape[1], sub_fb_a.shape[0]))
 
-
         for counter, (img_1, img_2) in enumerate(zip([sub_fb_d, sub_fb_g, sub_fb_a], [f_d, f_g, f_a])):
 
-            # Crop image in two equal parts
-            im_size = (img_1.shape[0], sub_fb_d.shape[1] // 2)
-            im_1_pc = img_1[:, :im_size[1]]
-            im_1_rgb = img_2[:, :im_size[1]]
-            im_2_pc = img_1[:, im_size[1]:]
-            im_2_rgb = img_2[:, im_size[1]:]
+            im_1_pc, im_2_pc = split_image_in_two(img_1)
+            im_1_rgb, im_2_rgb = split_image_in_two(img_2)
 
             # Extract keypoints
             best_uv_point_1 = get_sobel_keypoints(im_1_rgb, nb_kpts_patch)
@@ -109,13 +98,13 @@ def create_dataset(root_path: str,
                 # Get corresponding points in sub_fb_d
                 best_uv_point_1, best_uv_point_pc_1 = fisheye_1_to_fb_d_1(best_uv_point_1,
                                                                           downsampling,
-                                                                          patch_size,
+                                                                          fragment_size,
                                                                           camera_d,
                                                                           np.linalg.inv(r_d))
 
                 best_uv_point_2, best_uv_point_pc_2 = fisheye_2_to_fb_d_2(best_uv_point_2,
                                                                           downsampling,
-                                                                          patch_size,
+                                                                          fragment_size,
                                                                           camera_d,
                                                                           np.linalg.inv(r_d))
 
@@ -123,13 +112,13 @@ def create_dataset(root_path: str,
                 # Get corresponding points in sub_fb_g
                 best_uv_point_1, best_uv_point_pc_1 = fisheye_1_to_fb_g_1(best_uv_point_1,
                                                                           downsampling,
-                                                                          patch_size,
+                                                                          fragment_size,
                                                                           camera_g,
                                                                           np.linalg.inv(r_g))
 
                 best_uv_point_2, best_uv_point_pc_2 = fisheye_2_to_fb_g_2(best_uv_point_2,
                                                                           downsampling,
-                                                                          patch_size,
+                                                                          fragment_size,
                                                                           camera_g,
                                                                           np.linalg.inv(r_g))
 
@@ -137,13 +126,13 @@ def create_dataset(root_path: str,
                 # Get corresponding points in sub_fb_a
                 best_uv_point_1, best_uv_point_pc_1 = fisheye_1_to_fb_a_1(best_uv_point_1,
                                                                           downsampling,
-                                                                          patch_size,
+                                                                          fragment_size,
                                                                           camera_a,
                                                                           np.linalg.inv(r_a))
 
                 best_uv_point_2, best_uv_point_pc_2 = fisheye_2_to_fb_a_2(best_uv_point_2,
                                                                           downsampling,
-                                                                          patch_size,
+                                                                          fragment_size,
                                                                           camera_a,
                                                                           np.linalg.inv(r_a))
             if output_path is not None:
