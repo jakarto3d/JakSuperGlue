@@ -6,31 +6,12 @@ import numpy as np
 from tqdm import tqdm
 from loguru import logger
 
-
-def write_keypoints(fi_kpts: np.array,
-                    pc_kpts: np.array,
-                    conf: np.array,
-                    im_type: str,
-                    sphere_name: str,
-                    output_path: str):
-
-    output_path = Path(output_path)
-
-    fi_kpts = fi_kpts[:, ::-1]
-    pc_kpts = pc_kpts[:, ::-1]
-
-    res = {f'{sphere_name}_fi_{im_type}': fi_kpts.tolist(),
-           f'{sphere_name}_subfb_{im_type}': pc_kpts.tolist(),
-           'confidence': conf.tolist()}
-
-    with open(output_path / f'kpts_{sphere_name}_{im_type}.json', 'w') as f:
-        json.dump(res, f)
-
+from jaksuperglue.utils.inference_utils import write_keypoints
 
 
 class InferenceEngine:
     def __init__(self,
-                 working_dir_path: str,
+                 working_dir: str,
                  output_path: str,
                  dataset_config: dict,
                  batch_size: int = 1,
@@ -56,12 +37,12 @@ class InferenceEngine:
             }
         }
         self.model = Matching(model_config).eval().to(device)
-        self.infer_set = JakInferDataset(working_dir_path, mode='eval')
+        self.infer_set = JakInferDataset(working_dir, mode='eval')
         self.infer_loader = DataLoader(self.infer_set, batch_size=batch_size, num_workers=nb_workers,
                                       collate_fn=JakInferCollator(device), shuffle=True)
 
     def infer(self):
-        logger.info("Starting inference")
+        logger.info("Image Matching Inference: Start")
         self.model.eval()
 
         with torch.no_grad():
@@ -83,6 +64,7 @@ class InferenceEngine:
 
                 write_keypoints(mkpts0, mkpts1, mconf, im_type, sphere_name, self.output_path)
 
+        logger.info("Image Matching Inference: End with success")
                 # # Visualize the matches.
                 # color = cm.jet(mconf)
                 # text = [
