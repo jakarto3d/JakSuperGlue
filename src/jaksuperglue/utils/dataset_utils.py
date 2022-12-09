@@ -41,9 +41,10 @@ def load_sphere(sphere_path: str,
 def load_fisheye(fisheye_path: str,
                  resize: Tuple[int, int]):
     f_im = cv.imread(fisheye_path, 0)
+    original_fi_size = f_im.shape[:2]
     f_im = cv.resize(f_im, (resize[1], resize[0]))
 
-    return f_im
+    return f_im, original_fi_size
 
 
 def split_image_in_two(im: np.array):
