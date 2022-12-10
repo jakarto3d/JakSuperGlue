@@ -1,5 +1,5 @@
 import json
-from os import mkdir
+from typing import Union
 
 import numpy as np
 from pathlib import Path
@@ -8,19 +8,18 @@ from loguru import logger
 
 from jaksuperglue.utils.inference_utils import back2original_fi_1, back2original_fi_2, back2original_subfb_d1, \
     back2original_subfb_d2, back2original_subfb_g1, back2original_subfb_g2, back2original_subfb_a2, load_keypoints, \
-    load_preprocessing_meta
+    load_preprocessing_meta, mkdir
 
 
 class PostProcessingEngine:
     def __init__(self,
-                 predictions_path: str,
-                 preprocessing_meta_path: str,
-                 output_path: str):
-        self.prediction_path = Path(predictions_path)
-        self.preprocessing_meta_path = preprocessing_meta_path
+                 working_dir: Union[str, Path]):
+
+        self.prediction_path = Path(working_dir) / 'predictions'
+        self.preprocessing_meta_path = Path(working_dir) / 'preprocessing' / 'preprocessing_meta.json'
         self.prediction_files = list(self.prediction_path.glob('*.json'))
-        self.sphere_name_list = list(set([file.name.split('_')[0] for file in self.prediction_files]))
-        self.output_path = Path(output_path)
+        self.sphere_name_list = list(set(['_'.join(file.name.split('_')[:3]) for file in self.prediction_files]))
+        self.output_path = self.prediction_path.parents[0]
         self.im_type = ['d1', 'd2', 'g1', 'g2', 'a2']
 
     def process(self):
@@ -45,22 +44,22 @@ class PostProcessingEngine:
             kpts_fi_d2 = back2original_fi_2(kpts_fi_d2, meta)
             kpts_fi_g1 = back2original_fi_1(kpts_fi_g1, meta)
             kpts_fi_g2 = back2original_fi_2(kpts_fi_g2, meta)
-            kpts_fi_a2 = back2original_fi_2(kpts_fi_a2, meta)
+            kpts_fi_a2 = back2original_fi_2(kpts_fi_a2, meta, rotation_angle=-90)
             kpts_subfb_d1 = back2original_subfb_d1(kpts_subfb_d1, meta)
             kpts_subfb_d2 = back2original_subfb_d2(kpts_subfb_d2, meta)
             kpts_subfb_g1 = back2original_subfb_g1(kpts_subfb_g1, meta)
             kpts_subfb_g2 = back2original_subfb_g2(kpts_subfb_g2, meta)
             kpts_subfb_a2 = back2original_subfb_a2(kpts_subfb_a2, meta)
 
-            kpts_fi_d = np.vtack((kpts_fi_d1, kpts_fi_d2))
-            kpts_fi_g = np.vtack((kpts_fi_g1, kpts_fi_g2))
+            kpts_fi_d = np.vstack((kpts_fi_d1, kpts_fi_d2))
+            kpts_fi_g = np.vstack((kpts_fi_g1, kpts_fi_g2))
             kpts_fb_d = np.vstack((kpts_subfb_d1, kpts_subfb_d2))
             kpts_fb_g = np.vstack((kpts_subfb_g1, kpts_subfb_g2))
 
             confidence_d = np.hstack((conf_d1, conf_d2))
             confidence_g = np.hstack((conf_g1, conf_g2))
 
-            with open(str(self.output_path / 'control_points' / f'{sphere_name}.json')) as f:
+            with open(str(self.output_path / 'control_points' / f'{sphere_name}.json'), 'w') as f:
                 control_points = {"d.tiff": kpts_fi_d.tolist(),
                                   "g.tiff": kpts_fi_g.tolist(),
                                   "a.tiff": kpts_fi_a2.tolist(),

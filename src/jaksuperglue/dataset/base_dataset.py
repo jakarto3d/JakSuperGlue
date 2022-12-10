@@ -85,22 +85,18 @@ class JakOnlyImageCollator(object):
 
 def check_pair(file_1: Path, file_2: Path):
     condition_1 = file_1.name.split('_')[0] == file_2.name.split('_')[0]
-    condition_2 = file_1.name.split('_')[1] == file_2.name.split('_')[1]
+    condition_2 = file_1.name.split('_')[2] == file_2.name.split('_')[2]
     return condition_1 & condition_2
 
 
 class JakInferDataset(Dataset):
     """Sparse correspondences dataset."""
 
-    def __init__(self,
-                 root: Union[str, Path],
-                 mode: Literal["train", "eval"]):
+    def __init__(self, working_dir: Union[str, Path]):
 
-        self.root = Path(root)
-        self.data_path = self.root / mode
-        self.image_path = self.data_path
-        self.images_fi_list = list(self.image_path.glob("*_*_fi_*.png"))
-        self.images_pc_list = list(self.image_path.glob("*_*_subfb_*.png"))
+        self.image_path = Path(working_dir)
+        self.images_fi_list = sorted(list(self.image_path.glob("*_*_*_fi_*.png")))
+        self.images_pc_list = sorted(list(self.image_path.glob("*_*_*_subfb_*.png")))
 
     def __len__(self):
         return len(self.images_fi_list)
@@ -124,7 +120,7 @@ class JakInferDataset(Dataset):
             'image0': fi_im,
             'image1': pc_im,
             'patch_id': get_type(fi_file),
-            'sphere_name': fi_file.parents[0].name
+            'sphere_name': '_'.join(fi_file.name.split('_')[:3])
         }
 
 

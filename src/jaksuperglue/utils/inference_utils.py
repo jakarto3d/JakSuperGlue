@@ -1,7 +1,9 @@
+import errno
 from typing import Tuple, Union
 import json
 from pathlib import Path
 import numpy as np
+import os
 
 def mkdir(path):
     try:
@@ -76,8 +78,8 @@ def back2original_fi_1(kpts: np.array,
 
     ratio_h = meta['o_fi_size'][0] / meta['c_fi_size'][0]
     ratio_w = meta['o_fi_size'][1] / meta['c_fi_size'][1]
-    kpts[:, 0] *= ratio_h
-    kpts[:, 1] *= ratio_w
+    kpts[:, 0] *= ratio_w
+    kpts[:, 1] *= ratio_h
 
     return kpts
 
@@ -87,14 +89,15 @@ def back2original_fi_2(kpts: np.array,
                        rotation_angle: float = None):
 
     if rotation_angle is not None:
-        kpts = rotate_kpts(kpts, meta['c_fi_size'], rotation_angle)
+        im_size = (meta['c_fi_size'][0],  meta['c_fi_size'][1] // 2)
+        kpts = rotate_kpts(kpts, im_size, rotation_angle)
 
     ratio_h = meta['o_fi_size'][0] / meta['c_fi_size'][0]
     ratio_w = meta['o_fi_size'][1] / meta['c_fi_size'][1]
     middle = meta['c_fi_size'][1] // 2
-    kpts[:, 1] += middle
-    kpts[:, 0] *= ratio_h
-    kpts[:, 1] *= ratio_w
+    kpts[:, 0] += middle
+    kpts[:, 0] *= ratio_w
+    kpts[:, 1] *= ratio_h
 
     return kpts
 
@@ -178,7 +181,8 @@ def back2original_subfb_a2(kpts: np.array,
 
 
     # Replace points in subfb_d in equirectangular frame
-    kpts[:, 0] = (kpts[:, 0] +  meta['fragment_size'][1] * 6) % we_resize
+
+    kpts[:, 0] = (kpts[:, 0] + meta['fragment_size'][1] * 9) % we_resize
 
     kpts[:, 0] *= meta['downsampling']
     kpts[:, 1] *= meta['downsampling']

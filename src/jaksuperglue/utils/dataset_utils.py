@@ -31,16 +31,21 @@ def load_sphere(sphere_path: str,
     sphere_path: path of the sphere to load
     downsampling: should be a multiple of 2
     """
-    sphere = cv.imread(sphere_path, 0)
+    sphere = cv.imread(sphere_path)
+    o_fb_size = sphere.shape[:2]
     for _ in range(downsampling // 2):
         sphere = cv.pyrDown(sphere)
 
-    return sphere
+    return sphere, o_fb_size
 
 
 def load_fisheye(fisheye_path: str,
-                 resize: Tuple[int, int]):
-    f_im = cv.imread(fisheye_path, 0)
+                 resize: Tuple[int, int],
+                 fisheye_mask_path: str = None):
+    f_im = cv.imread(fisheye_path)
+    if fisheye_mask_path is not None:
+        msk = cv.imread(fisheye_mask_path) == 0
+        f_im[msk] = 0
     original_fi_size = f_im.shape[:2]
     f_im = cv.resize(f_im, (resize[1], resize[0]))
 
@@ -52,6 +57,7 @@ def split_image_in_two(im: np.array):
     im_1 = im[:, :middle]
     im_2 = im[:, middle:]
     return im_1, im_2
+
 
 def display_lm(img_target, img_src, uv_target, uv_src, name=None):
     H_t, W_t = img_target.shape[0], img_target.shape[1]
@@ -93,6 +99,7 @@ def display_lm(img_target, img_src, uv_target, uv_src, name=None):
     else:
         plt.show()
 
+
 def get_sub_fb_d(patch_list: List[np.array],
                  downsampling: int):
     patch_size = patch_list[0][0].shape[:2]
@@ -122,7 +129,7 @@ def get_sub_fb_a(patch_list: List[np.array],
     patch_size = patch_list[0][0].shape[:2]
     sub_sphere_a = np.zeros((2560 // downsampling, 5120 // downsampling, 3)).astype(np.uint8)
     for i, row_id in enumerate([0, 1, 2, 3, 4]):
-        for j, col_id in enumerate([3, 4, 11, 12, 13,14, 15, 0, 1, 2]):
+        for j, col_id in enumerate([3, 4, 11, 12, 13, 14, 15, 0, 1, 2]):
             sub_sphere_a[i * patch_size[0]:(i + 1) * patch_size[0], j * patch_size[1]:(j + 1) * patch_size[1]] = \
                 patch_list[row_id][col_id]
 
@@ -152,13 +159,12 @@ def points_fisheye2equirectangular(uv_points: np.array,
 
     return uv_points[mask, :], uv_points_e[mask, :]
 
+
 def fisheye_1_to_fb_d_1(uv_points: np.array,
                         downsampling: int,
                         patch_size: Tuple[int, int],
                         camera: Camera,
                         rotation_matrix: np.array):
-
-
     # Default equirectangular specifications
     he, we = (4096, 8192)
     he_new, we_new = he // downsampling, we // downsampling
@@ -170,7 +176,6 @@ def fisheye_1_to_fb_d_1(uv_points: np.array,
     f_ratio_w = sub_fb_shape[1] / wf
     vu_points_fisheye = np.vstack((np.round(uv_points[:, 1] / f_ratio_w),
                                    np.round(uv_points[:, 0] / f_ratio_h))).T
-
 
     vu_points, uv_points_equi = points_fisheye2equirectangular(vu_points_fisheye, downsampling, camera, rotation_matrix)
 
@@ -190,7 +195,6 @@ def fisheye_1_to_fb_d_1(uv_points: np.array,
     mask_2 = (uv_sub_fb_d[:, 1] >= 0) & (uv_sub_fb_d[:, 1] < (sub_fb_shape[1] // 2))
     mask = mask_1 & mask_2
 
-
     return uv_points[mask, :], uv_sub_fb_d[mask, :]
 
 
@@ -199,7 +203,6 @@ def fisheye_2_to_fb_d_2(uv_points: np.array,
                         patch_size: Tuple[int, int],
                         camera: Camera,
                         rotation_matrix: np.array):
-
     # Default equirectangular specifications
     he, we = (4096, 8192)
     he_new, we_new = he // downsampling, we // downsampling
@@ -241,8 +244,6 @@ def fisheye_1_to_fb_g_1(uv_points: np.array,
                         patch_size: Tuple[int, int],
                         camera: Camera,
                         rotation_matrix: np.array):
-
-
     # Default equirectangular specifications
     he, we = (4096, 8192)
     he_new, we_new = he // downsampling, we // downsampling
@@ -273,7 +274,6 @@ def fisheye_1_to_fb_g_1(uv_points: np.array,
     mask_2 = (uv_sub_fb_g[:, 1] >= 0) & (uv_sub_fb_g[:, 1] < (sub_fb_shape[1] // 2))
     mask = mask_1 & mask_2
 
-
     return uv_points[mask, :], uv_sub_fb_g[mask, :]
 
 
@@ -282,7 +282,6 @@ def fisheye_2_to_fb_g_2(uv_points: np.array,
                         patch_size: Tuple[int, int],
                         camera: Camera,
                         rotation_matrix: np.array):
-
     # Default equirectangular specifications
     he, we = (4096, 8192)
     he_new, we_new = he // downsampling, we // downsampling
@@ -324,8 +323,6 @@ def fisheye_1_to_fb_a_1(uv_points: np.array,
                         patch_size: Tuple[int, int],
                         camera: Camera,
                         rotation_matrix: np.array):
-
-
     # Default equirectangular specifications
     he, we = (4096, 8192)
     he_new, we_new = he // downsampling, we // downsampling
@@ -357,7 +354,6 @@ def fisheye_1_to_fb_a_1(uv_points: np.array,
     mask_2 = (uv_sub_fb_a[:, 1] >= 0) & (uv_sub_fb_a[:, 1] < (sub_fb_shape[1] // 2))
     mask = mask_1 & mask_2
 
-
     return uv_points[mask, :], uv_sub_fb_a[mask, :]
 
 
@@ -366,7 +362,6 @@ def fisheye_2_to_fb_a_2(uv_points: np.array,
                         patch_size: Tuple[int, int],
                         camera: Camera,
                         rotation_matrix: np.array):
-
     # Default equirectangular specifications
     he, we = (4096, 8192)
     he_new, we_new = he // downsampling, we // downsampling
@@ -403,7 +398,8 @@ def fisheye_2_to_fb_a_2(uv_points: np.array,
 
     return uv_points[mask, :], uv_sub_fb_a[mask, :]
 
-def write_keypoints(kpts_1: np.array,  kpts_2: np.array, output_file: Path, value: int):
+
+def write_keypoints(kpts_1: np.array, kpts_2: np.array, output_file: Path, value: int):
     kpts = {'fisheye': kpts_1.tolist(),
             'pc': kpts_2.tolist()}
     with open(output_file / f'kpts_{value}.json', 'w') as f:
